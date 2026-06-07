@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>学生信息管理系统</title>
+    <style>
+        body { font-family: Arial, "Microsoft YaHei", sans-serif; margin: 30px; background: #f7f8fa; }
+        h2 { margin-bottom: 10px; }
+        .card { background: #fff; padding: 18px; margin-bottom: 18px; border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
+        input, select, button { padding: 8px; margin: 5px; }
+        button { cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; background: #fff; }
+        th, td { border: 1px solid #ddd; padding: 9px; text-align: center; }
+        th { background: #f0f2f5; }
+        .danger { color: #b00020; }
+    </style>
+</head>
+<body>
+<h2>学生信息管理系统</h2>
+
+<div class="card">
+    <input id="studentNo" placeholder="学号">
+    <input id="name" placeholder="姓名">
+    <select id="gender">
+        <option value="男">男</option>
+        <option value="女">女</option>
+    </select>
+    <input id="major" placeholder="专业">
+    <input id="grade" placeholder="年级" type="number" value="2024">
+    <input id="phone" placeholder="电话">
+    <button onclick="saveStudent()">保存</button>
+    <button onclick="clearForm()">清空</button>
+    <input type="hidden" id="editId">
+</div>
+
+<div class="card">
+    <input id="keyword" placeholder="按学号、姓名或专业搜索">
+    <button onclick="loadStudents()">查询</button>
+    <input id="countMajor" placeholder="输入专业统计人数">
+    <button onclick="countMajor()">统计</button>
+    <span id="countResult"></span>
+</div>
+
+<table>
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>学号</th>
+        <th>姓名</th>
+        <th>性别</th>
+        <th>专业</th>
+        <th>年级</th>
+        <th>电话</th>
+        <th>操作</th>
+    </tr>
+    </thead>
+    <tbody id="studentBody"></tbody>
+</table>
+
+<script>
+    async function request(url, options = {}) {
+        const response = await fetch(url, options);
+        const result = await response.json();
+        if (!result.success) {
+            alert(result.message || '操作失败');
+            throw new Error(result.message);
+        }
+        return result.data;
+    }
+
+    async function loadStudents() {
+        const keyword = document.getElementById('keyword').value.trim();
+        const data = await request('/api/students' + (keyword ? '?keyword=' + encodeURIComponent(keyword) : ''));
+        const body = document.getElementById('studentBody');
+        body.innerHTML = '';
+        data.forEach(item => {
+            body.innerHTML += `<tr>
+                <td>${item.id}</td>
+                <td>${item.studentNo}</td>
+                <td>${item.name}</td>
+                <td>${item.gender}</td>
+                <td>${item.major}</td>
+                <td>${item.grade}</td>
+                <td>${item.phone || ''}</td>
+                <td>
+                    <button onclick='editStudent(${JSON.stringify(item)})'>编辑</button>
+                    <button class="danger" onclick="deleteStudent(${item.id})">删除</button>
+                </td>
+            </tr>`;
+        });
+    }
+
+    function getFormData() {
+        return {
+            studentNo: document.getElementById('studentNo').value.trim(),
+            name: document.getElementById('name').value.trim(),
+            gender: document.getElementById('gender').value,
+            major: document.getElementById('major').value.trim(),
+            grade: Number(document.getElementById('grade').value),
+            phone: document.getElementById('phone').value.trim()
+        };
+    }
+
+    async function saveStudent() {
+        const id = document.getElementById('editId').value;
+        const method = id ? 'PUT' : 'POST';
+        const url = id ? `/api/students/${id}` : '/api/students';
+        await request(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(getFormData())
+        });
+        clearForm();
+        loadStudents();
+    }
+
+    function editStudent(item) {
+        document.getElementById('editId').value = item.id;
+        document.getElementById('studentNo').value = item.studentNo;
+        document.getElementById('name').value = item.name;
+        document.getElementById('gender').value = item.gender;
+        document.getElementById('major').value = item.major;
+        document.getElementById('grade').value = item.grade;
+        document.getElementById('phone').value = item.phone || '';
+    }
+
+    async function deleteStudent(id) {
+        if (!confirm('确认删除该学生吗？')) return;
+        await request(`/api/students/${id}`, { method: 'DELETE' });
+        loadStudents();
+    }
+
+    async function countMajor() {
+        const major = document.getElementById('countMajor').value.trim();
+        const data = await request('/api/students/count?major=' + encodeURIComponent(major));
+        document.getElementById('countResult').innerText = `${data.major}：${data.count}人`;
+    }
+
+    function clearForm() {
+        document.getElementById('editId').value = '';
+        document.getElementById('studentNo').value = '';
+        document.getElementById('name').value = '';
+        document.getElementById('gender').value = '男';
+        document.getElementById('major').value = '';
+        document.getElementById('grade').value = '2024';
+        document.getElementById('phone').value = '';
+    }
+
+    loadStudents();
+</script>
+</body>
+</html>
